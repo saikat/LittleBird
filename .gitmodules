@@ -1,0 +1,3 @@
+[submodule "Frameworks/SCSocket"]
+	path = Frameworks/SCSocket
+	url = git@github.com:saikat/SCSocket.git
