@@ -22,6 +22,12 @@ var MaxRequests = 1000;
     CPScrollView openRequestsScrollView;
     JSObject clients;
     CPArray requests;
+    CPArray unknownResponses;
+
+    CPTextField reqsPerMin;
+    CPTextField connPerMin;
+    CPTextField timePerReq;
+    CPTextField maxTimePerReq;
 }
 
 - (void)applicationDidFinishLaunching:(CPNotification)aNotification
@@ -30,6 +36,7 @@ var MaxRequests = 1000;
     var host = "http://localhost:8080";
     clients = {};
     requests = [];
+    unknownResponses = [];
     theSocket = [[SCSocket alloc] initWithURL:[CPURL URLWithString:host] delegate:self];
     [theSocket connect];
 }
@@ -55,7 +62,6 @@ var MaxRequests = 1000;
     [clientProjectView setAllowsColumnResizing:YES];
 
     clientProjectScrollView = [[CPScrollView alloc] initWithFrame:CGRectMake(20, 20, 400, 500)];
-    [clientProjectScrollView setAutoresizingMask:CPViewHeightSizable];
     [clientProjectScrollView setAutohidesScrollers:YES];
     [clientProjectScrollView setHasHorizontalScroller:YES];
     [clientProjectScrollView setDocumentView:clientProjectView];
@@ -98,13 +104,36 @@ var MaxRequests = 1000;
     [openRequestsView addTableColumn:ttr];
 
     openRequestsScrollView = [[CPScrollView alloc] initWithFrame:CGRectMake(440, 20, 800, 500)];
-    [openRequestsScrollView setAutoresizingMask:CPViewHeightSizable];
     [openRequestsScrollView setAutohidesScrollers:YES];
     [openRequestsScrollView setHasHorizontalScroller:YES];
     [openRequestsScrollView setDocumentView:openRequestsView];
-    
+
+    reqsPerMin = [CPTextField labelWithTitle:"Reqs/min: "];
+    [reqsPerMin setFont:[CPFont fontWithName:"Helvetica" size:32.0]];
+    [reqsPerMin sizeToFit];
+    [reqsPerMin setFrameOrigin:CGPointMake(20, 540)];
+
+    connPerMin = [CPTextField labelWithTitle:"Conn/min: "];
+    [connPerMin setFont:[CPFont fontWithName:"Helvetica" size:32.0]];
+    [connPerMin sizeToFit];
+    [connPerMin setFrameOrigin:CGPointMake(20, 575)];
+
+    timePerReq = [CPTextField labelWithTitle:"Time/req: "];
+    [timePerReq setFont:[CPFont fontWithName:"Helvetica" size:32.0]];
+    [timePerReq sizeToFit];
+    [timePerReq setFrameOrigin:CGPointMake(20, 610)];
+
+    maxTimePerReq = [CPTextField labelWithTitle:"Max time/req: "];
+    [maxTimePerReq setFont:[CPFont fontWithName:"Helvetica" size:32.0]];
+    [maxTimePerReq sizeToFit];
+    [maxTimePerReq setFrameOrigin:CGPointMake(20, 645)];
+
     [contentView addSubview:clientProjectScrollView];
     [contentView addSubview:openRequestsScrollView];
+    [contentView addSubview:reqsPerMin];
+    [contentView addSubview:connPerMin];
+    [contentView addSubview:timePerReq];
+    [contentView addSubview:maxTimePerReq];
     [theWindow orderFront:self];
 }
 
@@ -160,6 +189,11 @@ var MaxRequests = 1000;
     [openRequestsView reloadData];
 }
 
+- (void)calculateRequestsPerMinute
+{
+    
+}
+
 - (void)socket:(SCSocket)aSocket didReceiveMessage:(JSObject)aMessage
 {
     var count = aMessage.length;
@@ -188,13 +222,27 @@ var MaxRequests = 1000;
             }
             else if (theAction[1] === "message")
             {
+                var active = YES;
+                var response = nil;
+                var ttr = nil;
+                var responsesLength = unknownResponses.length;
+                for (var k = 0; k < responsesLength; ++k)
+                {
+                    if (unknownResponses[k].id === theAction[3][0])
+                    {
+                        active = NO;
+                        response = unknownResponses[k].response;
+                        unknownResponses.splice(k, 1);
+                        break;
+                    }
+                }
                 requests.push({
                             "id" : theAction[3][0],
                                 "timestamp" : theAction[0],
                                 "client" : theAction[2],
-                                "active" : YES,
+                                "active" : active,
                                 "request" : JSON.stringify(theAction[3]),
-                                "response" : nil,
+                                "response" : response,
                                 "ttr" : nil});
                             
                 if (requests.length > MaxRequests)
@@ -218,14 +266,12 @@ var MaxRequests = 1000;
                         requests[j].active = NO;
                         break;
                     }
-                if (j === reqLen)
-                    requests.push({"id" : theAction[3][0],
+                if (j === reqLen) {
+                    unknownResponses.push({"id" : theAction[3][0],
                                 "timestamp" : theAction[0],
-                                "client" : nil,
-                                "active" : NO,
-                                "request" : JSON.stringify(theAction[3]),
-                                "response" : theAction[3][1],
-                                "ttr" : 0});
+                                "response" : theAction[3][1]});
+                    console.log(unknownResponses);
+                }
 
             }
         }
