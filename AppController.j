@@ -16,7 +16,8 @@
     CPTableView openRequestsView;
     CPTableColumn clientsColumn;
     CPTableColumn projectsColumn; 
-    CPScrollView scrollView;
+    CPScrollView clientProjectScrollView;
+    CPScrollView openRequestsScrollView;
     JSObject clients;
 }
 
@@ -36,15 +37,16 @@
     var theWindow = [[CPWindow alloc] initWithContentRect:CGRectMakeZero() styleMask:CPBorderlessBridgeWindowMask],
         contentView = [theWindow contentView];
 
-    clientProjectView = [[CPTableView alloc] initWithFrame:CGRectMake(0, 0, 200, 300)];
+    clientProjectView = [[CPTableView alloc] initWithFrame:CGRectMake(0, 0, 400, 300)];
 
+    [clientProjectView setBackgroundColor:[CPColor colorWithHexString:"DDDDDD"]];
     clientsColumn = [[CPTableColumn alloc] initWithIdentifier:@"clients"];
     projectsColumn = [[CPTableColumn alloc] initWithIdentifier:@"projects"];
     [clientProjectView setDataSource:self];
     [clientProjectView setAllowsColumnReordering:YES];
     [clientProjectView setAllowsColumnResizing:YES];
 
-    clientProjectScrollView = [[CPScrollView alloc] initWithFrame:CGRectMake(20, 20, 300, 400)];
+    clientProjectScrollView = [[CPScrollView alloc] initWithFrame:CGRectMake(20, 20, 400, 400)];
     [clientProjectScrollView setAutoresizingMask:CPViewHeightSizable];
     [clientProjectScrollView setAutohidesScrollers:YES];
     [clientProjectScrollView setHasHorizontalScroller:YES];
@@ -52,7 +54,17 @@
  
     [clientProjectView addTableColumn:clientsColumn];
     [clientProjectView addTableColumn:projectsColumn];
+
+    openRequestsView = [[CPTableView alloc] initWithFrame:CGRectMake(0, 0, 800, 500)];
+    [openRequestsView setBackgroundColor:[CPColor colorWithHexString:"DDDDDD"]];
+    openRequestsScrollView = [[CPScrollView alloc] initWithFrame:CGRectMake(440, 20, 800, 500)];
+    [openRequestsScrollView setAutoresizingMask:CPViewHeightSizable];
+    [openRequestsScrollView setAutohidesScrollers:YES];
+    [openRequestsScrollView setHasHorizontalScroller:YES];
+    [openRequestsScrollView setDocumentView:openRequestsView];
+    
     [contentView addSubview:clientProjectScrollView];
+    [contentView addSubview:openRequestsScrollView];
     [theWindow orderFront:self];
 }
 
@@ -63,26 +75,29 @@
 
 - (void)tableView:(CPTableView)aView objectValueForTableColumn:(unsigned)aColumn row:(unsigned)aRow
 {
-    var count = 0;
-    var obj = nil;
-    for (key in clients)
-        if (clients.hasOwnProperty(key))
-        {
-            if (count != aRow) 
-                count++;
-            else 
+    if (aView === clientProjectView)
+    {
+        var count = 0;
+        var obj = nil;
+        for (key in clients)
+            if (clients.hasOwnProperty(key))
             {
-                obj = {"client" : key,
-                       "project" : clients[key]};
-                break;
-            }
-        };
+                if (count != aRow) 
+                    count++;
+                else 
+                {
+                    obj = {"client" : key,
+                           "project" : clients[key]};
+                    break;
+                }
+            };
 
-    if ([aColumn identifier] === 'clients') 
-        return obj.client;
+        if ([aColumn identifier] === 'clients') 
+            return obj.client;
 
-    if ([aColumn identifier] === 'projects')
-        return obj.project;
+        if ([aColumn identifier] === 'projects')
+            return obj.project;
+    }
 }
 
 - (void)refresh
@@ -94,36 +109,41 @@
     [[clientsColumn headerView] setStringValue:"Clients (" + Object.keys(clients).length + ")"];
     [[projectsColumn headerView] setStringValue:"Projects (" + projectCount + ")"];
     [clientProjectView reloadData];
-    setTimeout(function() {[self refresh]}, 500);
 }
 
-- (void)socket:(SCSocket)aSocket didReceiveMessage:(CPString)aMessage
+- (void)socket:(SCSocket)aSocket didReceiveMessage:(JSObject)aMessage
 {
-    if (aMessage.init)
+    var count = aMessage.length;
+    for (var i = 0; i < count; ++i) 
     {
-        var allClients = aMessage.clients;
-        var count = allClients.length;
-        for (var i = 0; i < count; ++i)
-            clients[allClients[i]] = nil;
-        [self refresh];
-    }
-    else
-    {
-        if (aMessage[1] === "connect")
-            clients[aMessage[2]] = nil;
-        else if (aMessage[1] === "disconnect")
+        var theAction = aMessage[i];
+        if (theAction.init)
         {
-            for (key in clients) 
+            var allClients = theAction.clients;
+            var count = allClients.length;
+            for (var i = 0; i < count; ++i)
+                clients[allClients[i]] = nil;
+            [self refresh];
+        }
+        else
+        {
+            if (theAction[1] === "connect")
+                clients[theAction[2]] = nil;
+            else if (theAction[1] === "disconnect")
             {
-                if (clients.hasOwnProperty(key) && key === aMessage[2])
-                    delete clients[key];
+                for (key in clients) 
+                {
+                    if (clients.hasOwnProperty(key) && key === theAction[2])
+                        delete clients[key];
+                }
+            }
+            else if (theAction[1] === "message")
+            {
+                if (theAction[3][1] == "subscribe" || theAction[3][1] === "update")
+                    clients[theAction[2]] = theAction[3][2];
             }
         }
-        else if (aMessage[1] === "message")
-        {
-            if (aMessage[3][1] == "subscribe" || aMessage[3][1] === "update")
-                clients[aMessage[2]] = aMessage[3][2];
-        }
     }
+    [self refresh];
 }
 @end
