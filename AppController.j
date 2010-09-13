@@ -9,7 +9,7 @@
 @import <Foundation/CPObject.j>
 @import <SCSocket/SCSocket.j>
 
-var MaxRequests = 10;
+var MaxRequests = 1000;
 
 @implementation AppController : CPObject
 {
@@ -207,6 +207,26 @@ var MaxRequests = 10;
                     });
                 if (theAction[3][1] == "subscribe" || theAction[3][1] === "update")
                     clients[theAction[2]] = theAction[3][2];
+            }
+            else if (theAction[1] === "response")
+            {
+                var reqLen = requests.length;
+                var theRequest = nil;
+                for (var j = 0; j < reqLen; ++j)
+                    if (requests[j].id === theAction[3][0]) {
+                        requests[j].response = theAction[3][1];
+                        requests[j].active = NO;
+                        break;
+                    }
+                if (j === reqLen)
+                    requests.push({"id" : theAction[3][0],
+                                "timestamp" : theAction[0],
+                                "client" : nil,
+                                "active" : NO,
+                                "request" : JSON.stringify(theAction[3]),
+                                "response" : theAction[3][1],
+                                "ttr" : 0});
+
             }
         }
     }
