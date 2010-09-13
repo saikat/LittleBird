@@ -30,8 +30,7 @@
 
 - (void)socketDidConnect:(SCSocket)aSocket
 {
-    //    var token = window.prompt("Secret?");
-    var token = "jOQwLOzOajxhy9DwgVnFpzyUXIg9jc";
+    var token = window.prompt("Secret?");
     lps = [0];
     [theSocket sendMessage:token];
     var theWindow = [[CPWindow alloc] initWithContentRect:CGRectMakeZero() styleMask:CPBorderlessBridgeWindowMask],
