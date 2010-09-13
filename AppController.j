@@ -33,8 +33,7 @@ var MaxRequests = 2000;
 
 - (void)applicationDidFinishLaunching:(CPNotification)aNotification
 {
-    //    var host = window.prompt("Host?");
-    var host = "http://localhost:8080";
+    var host = window.prompt("Host?");
     clients = {};
     requests = [];
     unknownResponses = [];
@@ -45,8 +44,7 @@ var MaxRequests = 2000;
 
 - (void)socketDidConnect:(SCSocket)aSocket
 {
-    //    var token = window.prompt("Secret?");
-    var token = 'xyVBQmbUYS4ONWXLuVlPAt7sZdQpNi';
+    var token = window.prompt("Secret?");
     lps = [0];
     [theSocket sendMessage:token];
     var theWindow = [[CPWindow alloc] initWithContentRect:CGRectMakeZero() styleMask:CPBorderlessBridgeWindowMask],
