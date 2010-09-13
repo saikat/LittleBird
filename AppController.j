@@ -9,7 +9,6 @@
 @import <Foundation/CPObject.j>
 @import <SCSocket/SCSocket.j>
 
-var MaxRequestsRows = 500;
 @implementation AppController : CPObject
 {
     SCSocket theSocket;
@@ -23,8 +22,9 @@ var MaxRequestsRows = 500;
 
 - (void)applicationDidFinishLaunching:(CPNotification)aNotification
 {
+    var host = window.prompt("Host?");
     clients = {};
-    theSocket = [[SCSocket alloc] initWithURL:[CPURL URLWithString:"http://localhost:8080"] delegate:self];
+    theSocket = [[SCSocket alloc] initWithURL:[CPURL URLWithString:host] delegate:self];
     [theSocket connect];
 }
 
@@ -38,8 +38,6 @@ var MaxRequestsRows = 500;
         contentView = [theWindow contentView];
 
     clientProjectView = [[CPTableView alloc] initWithFrame:CGRectMake(0, 0, 200, 300)];
-
-    openRequestsView = [[CPTableView alloc
 
     clientsColumn = [[CPTableColumn alloc] initWithIdentifier:@"clients"];
     projectsColumn = [[CPTableColumn alloc] initWithIdentifier:@"projects"];
