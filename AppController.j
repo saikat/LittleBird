@@ -9,6 +9,8 @@
 @import <Foundation/CPObject.j>
 @import <SCSocket/SCSocket.j>
 
+var MaxRequests = 10;
+
 @implementation AppController : CPObject
 {
     SCSocket theSocket;
@@ -19,34 +21,40 @@
     CPScrollView clientProjectScrollView;
     CPScrollView openRequestsScrollView;
     JSObject clients;
+    CPArray requests;
 }
 
 - (void)applicationDidFinishLaunching:(CPNotification)aNotification
 {
-    var host = window.prompt("Host?");
+    //    var host = window.prompt("Host?");
+    var host = "http://localhost:8080";
     clients = {};
+    requests = [];
     theSocket = [[SCSocket alloc] initWithURL:[CPURL URLWithString:host] delegate:self];
     [theSocket connect];
 }
 
 - (void)socketDidConnect:(SCSocket)aSocket
 {
-    var token = window.prompt("Secret?");
+    //    var token = window.prompt("Secret?");
+    var token = 'xyVBQmbUYS4ONWXLuVlPAt7sZdQpNi';
     lps = [0];
     [theSocket sendMessage:token];
     var theWindow = [[CPWindow alloc] initWithContentRect:CGRectMakeZero() styleMask:CPBorderlessBridgeWindowMask],
         contentView = [theWindow contentView];
 
-    clientProjectView = [[CPTableView alloc] initWithFrame:CGRectMake(0, 0, 400, 300)];
+    clientProjectView = [[CPTableView alloc] initWithFrame:CGRectMake(0, 0, 400, 500)];
 
     [clientProjectView setBackgroundColor:[CPColor colorWithHexString:"DDDDDD"]];
     clientsColumn = [[CPTableColumn alloc] initWithIdentifier:@"clients"];
+    [clientsColumn setMinWidth:195];
     projectsColumn = [[CPTableColumn alloc] initWithIdentifier:@"projects"];
+    [projectsColumn setMinWidth:195];
     [clientProjectView setDataSource:self];
     [clientProjectView setAllowsColumnReordering:YES];
     [clientProjectView setAllowsColumnResizing:YES];
 
-    clientProjectScrollView = [[CPScrollView alloc] initWithFrame:CGRectMake(20, 20, 400, 400)];
+    clientProjectScrollView = [[CPScrollView alloc] initWithFrame:CGRectMake(20, 20, 400, 500)];
     [clientProjectScrollView setAutoresizingMask:CPViewHeightSizable];
     [clientProjectScrollView setAutohidesScrollers:YES];
     [clientProjectScrollView setHasHorizontalScroller:YES];
@@ -57,6 +65,38 @@
 
     openRequestsView = [[CPTableView alloc] initWithFrame:CGRectMake(0, 0, 800, 500)];
     [openRequestsView setBackgroundColor:[CPColor colorWithHexString:"DDDDDD"]];
+
+    timestamp = [[CPTableColumn alloc] initWithIdentifier:@"timestamp"];
+    [[timestamp headerView] setStringValue:"Timestamp"];
+    [timestamp setMinWidth:150];
+    clientColumn = [[CPTableColumn alloc] initWithIdentifier:@"client"];
+    [[clientColumn headerView] setStringValue:"Client"];
+    [clientColumn setMinWidth:20];
+    [clientColumn setWidth:100];
+    isActive = [[CPTableColumn alloc] initWithIdentifier:@"active"];
+    [[isActive headerView] setStringValue:"Active?"];
+    [isActive setMinWidth:20];
+    [isActive setWidth:50];
+    request = [[CPTableColumn alloc] initWithIdentifier:@"request"];
+    [[request headerView] setStringValue:"Request"];
+    [request setMinWidth:380];
+    response = [[CPTableColumn alloc] initWithIdentifier:@"response"];
+    [[response headerView] setStringValue:"Response"];
+    [response setMinWidth:20];
+    [response setWidth:50];
+    ttr = [[CPTableColumn alloc] initWithIdentifier:@"ttr"];
+    [[ttr headerView] setStringValue:"TTR"];
+    [ttr setMinWidth:20];
+    [ttr setWidth:50];
+
+    [openRequestsView setDataSource:self];
+    [openRequestsView addTableColumn:timestamp];
+    [openRequestsView addTableColumn:clientColumn];
+    [openRequestsView addTableColumn:isActive];
+    [openRequestsView addTableColumn:request];
+    [openRequestsView addTableColumn:response];
+    [openRequestsView addTableColumn:ttr];
+
     openRequestsScrollView = [[CPScrollView alloc] initWithFrame:CGRectMake(440, 20, 800, 500)];
     [openRequestsScrollView setAutoresizingMask:CPViewHeightSizable];
     [openRequestsScrollView setAutohidesScrollers:YES];
@@ -70,7 +110,10 @@
 
 - (void)numberOfRowsInTableView:(CPTableView)aView
 {
-    return Object.keys(clients).length;
+    if (aView === clientProjectView)
+        return Object.keys(clients).length;
+    else
+        return requests.length;
 }
 
 - (void)tableView:(CPTableView)aView objectValueForTableColumn:(unsigned)aColumn row:(unsigned)aRow
@@ -98,6 +141,11 @@
         if ([aColumn identifier] === 'projects')
             return obj.project;
     }
+    else if (aView === openRequestsView)
+    {
+        var theObj = requests[aRow];
+        return theObj[[aColumn identifier]];
+    }
 }
 
 - (void)refresh
@@ -109,6 +157,7 @@
     [[clientsColumn headerView] setStringValue:"Clients (" + Object.keys(clients).length + ")"];
     [[projectsColumn headerView] setStringValue:"Projects (" + projectCount + ")"];
     [clientProjectView reloadData];
+    [openRequestsView reloadData];
 }
 
 - (void)socket:(SCSocket)aSocket didReceiveMessage:(JSObject)aMessage
@@ -139,6 +188,23 @@
             }
             else if (theAction[1] === "message")
             {
+                requests.push({
+                            "id" : theAction[3][0],
+                                "timestamp" : theAction[0],
+                                "client" : theAction[2],
+                                "active" : YES,
+                                "request" : JSON.stringify(theAction[3]),
+                                "response" : nil,
+                                "ttr" : nil});
+                            
+                if (requests.length > MaxRequests)
+                    requests.shift();
+                requests.sort(function(a, b) {
+                        if (a.timestamp < b.timestamp)
+                            return -1;
+                        else
+                            return 1;
+                    });
                 if (theAction[3][1] == "subscribe" || theAction[3][1] === "update")
                     clients[theAction[2]] = theAction[3][2];
             }
