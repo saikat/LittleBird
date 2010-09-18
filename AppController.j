@@ -255,7 +255,7 @@ var MaxRequests = 2000;
             var requestType = theAction[1];
             var theClient = theAction[2];
             
-            if (requestType === "connect")
+            if (requestType === "connect") 
                 clients[theClient] = nil;
             else if (requestType === "disconnect")
             {
@@ -274,8 +274,11 @@ var MaxRequests = 2000;
                 var actionId = theAction[3].id;
                 var cmd = theAction[3].cmd;
                 var project = theAction[3].project;
-                var version = theAction[3].body.version;
-                var theMsgCount = theAction[3].body.msgCount;
+                if (theAction[3].body)
+                {
+                    var version = theAction[3].body.version;
+                    var theMsgCount = theAction[3].body.msgCount;
+                }
                 for (var k = 0; k < responsesLength; ++k)
                 {
                     if (unknownResponses[k].id === actionId)
