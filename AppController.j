@@ -33,7 +33,8 @@ var MaxRequests = 2000;
 
 - (void)applicationDidFinishLaunching:(CPNotification)aNotification
 {
-    var host = window.prompt("Host?");
+    //    var host = window.prompt("Host?");
+    var host = "http://localhost:8080";
     clients = {};
     requests = [];
     unknownResponses = [];
@@ -44,7 +45,8 @@ var MaxRequests = 2000;
 
 - (void)socketDidConnect:(SCSocket)aSocket
 {
-    var token = window.prompt("Secret?");
+    //var token = window.prompt("Secret?");
+    var token = "yNO6sPkCfiHUCXZDzpjCAMGIPP8lvD";
     lps = [0];
     [theSocket sendMessage:token];
     var theWindow = [[CPWindow alloc] initWithContentRect:CGRectMakeZero() styleMask:CPBorderlessBridgeWindowMask],
@@ -78,14 +80,27 @@ var MaxRequests = 2000;
     clientColumn = [[CPTableColumn alloc] initWithIdentifier:@"client"];
     [[clientColumn headerView] setStringValue:"Client"];
     [clientColumn setMinWidth:20];
-    [clientColumn setWidth:100];
+    [clientColumn setWidth:50];
+    projectColumn = [[CPTableColumn alloc] initWithIdentifier:@"project"];
+    [[projectColumn headerView] setStringValue:"Project"];
+    [projectColumn setMinWidth:20];
+    [projectColumn setWidth:100];
     isActive = [[CPTableColumn alloc] initWithIdentifier:@"active"];
     [[isActive headerView] setStringValue:"Active?"];
     [isActive setMinWidth:20];
     [isActive setWidth:50];
+    versionColumn = [[CPTableColumn alloc] initWithIdentifier:@"version"];
+    [[versionColumn headerView] setStringValue:"Version"];
+    [versionColumn setMinWidth:20];
+    [versionColumn setWidth:50];
+    msgCount = [[CPTableColumn alloc] initWithIdentifier:@"msgCount"];
+    [[msgCount headerView] setStringValue:"Msg Ct"];
+    [msgCount setMinWidth:20];
+    [msgCount setWidth:50];
     request = [[CPTableColumn alloc] initWithIdentifier:@"request"];
     [[request headerView] setStringValue:"Request"];
     [request setMinWidth:360];
+    [request setWidth:4000];
     response = [[CPTableColumn alloc] initWithIdentifier:@"response"];
     [[response headerView] setStringValue:"Response"];
     [response setMinWidth:20];
@@ -98,10 +113,13 @@ var MaxRequests = 2000;
     [openRequestsView setDataSource:self];
     [openRequestsView addTableColumn:timestamp];
     [openRequestsView addTableColumn:clientColumn];
+    [openRequestsView addTableColumn:projectColumn];
+    [openRequestsView addTableColumn:versionColumn];
+    [openRequestsView addTableColumn:msgCount];
     [openRequestsView addTableColumn:isActive];
-    [openRequestsView addTableColumn:request];
     [openRequestsView addTableColumn:response];
     [openRequestsView addTableColumn:ttr];
+    [openRequestsView addTableColumn:request];
 
     openRequestsScrollView = [[CPScrollView alloc] initWithFrame:CGRectMake(440, 20, 800, 500)];
     [openRequestsScrollView setAutohidesScrollers:YES];
@@ -185,13 +203,13 @@ var MaxRequests = 2000;
     if (requests.length) {
         requests.map(function(x, index) {
                 var parsedMsg = JSON.parse(x.request);
-                if (parsedMsg[1] === "update") {
+                if (parsedMsg.cmd === "update") {
                     count++;
                     totalTTR = totalTTR + x.ttr;
                     if (x.ttr > maxReq.time) 
                     {
                         maxReq.time = x.ttr;
-                        maxReq.project = parsedMsg[2];
+                        maxReq.project = parsedMsg.project;
                     }
                 }
             });
@@ -235,41 +253,53 @@ var MaxRequests = 2000;
         }
         else
         {
-            if (theAction[1] === "connect")
-                clients[theAction[2]] = nil;
-            else if (theAction[1] === "disconnect")
+            var actionTimestamp = theAction[0];
+            var requestType = theAction[1];
+            var theClient = theAction[2];
+            
+            if (requestType === "connect")
+                clients[theClient] = nil;
+            else if (requestType === "disconnect")
             {
                 for (key in clients) 
                 {
-                    if (clients.hasOwnProperty(key) && key === theAction[2])
+                    if (clients.hasOwnProperty(key) && key === theClient)
                         delete clients[key];
                 }
             }
-            else if (theAction[1] === "message")
+            else if (requestType === "message")
             {
                 var active = YES;
                 var response = nil;
                 var ttr = nil;
                 var responsesLength = unknownResponses.length;
+                var actionId = theAction[3].id;
+                var cmd = theAction[3].cmd;
+                var project = theAction[3].project;
+                var version = theAction[3].body.version;
+                var theMsgCount = theAction[3].body.msgCount;
                 for (var k = 0; k < responsesLength; ++k)
                 {
-                    if (unknownResponses[k].id === theAction[3][0])
+                    if (unknownResponses[k].id === actionId)
                     {
                         active = NO;
                         response = unknownResponses[k].response;
-                        ttr = subtractTimestamps(theAction[0], unknownResponses[k].timestamp);
+                        ttr = subtractTimestamps(actionTimestamp, unknownResponses[k].timestamp);
                         unknownResponses.splice(k, 1);
                         break;
                     }
                 }
                 requests.push({
-                            "id" : theAction[3][0],
-                                "timestamp" : theAction[0],
-                                "client" : theAction[2],
+                            "id" : actionId,
+                                "timestamp" : actionTimestamp,
+                                "client" : theClient,
+                                "project" : project,
+                                "version" : version,
+                                "msgCount" : theMsgCount,
                                 "active" : active,
-                                "request" : JSON.stringify(theAction[3]),
                                 "response" : response,
-                                "ttr" : ttr});
+                                "ttr" : ttr,
+                                "request" : JSON.stringify(theAction[3])});
                             
                 if (requests.length > MaxRequests)
                     requests.shift();
@@ -279,25 +309,25 @@ var MaxRequests = 2000;
                         else
                             return 1;
                     });
-                if (theAction[3][1] == "subscribe" || theAction[3][1] === "update")
-                    clients[theAction[2]] = theAction[3][2];
+                if (cmd == "subscribe" || cmd === "update")
+                    clients[theClient] = project;
             }
-            else if (theAction[1] === "response")
+            else if (requestType === "response")
             {
                 var reqLen = requests.length;
                 var theRequest = nil;
+                var actionId = theAction[3].id;
                 for (var j = 0; j < reqLen; ++j)
-                    if (requests[j].id === theAction[3][0]) {
-                        requests[j].response = theAction[3][1];
+                    if (requests[j].id === actionId) {
+                        requests[j].response = theAction[3].status;
                         requests[j].active = NO;
                         requests[j].ttr = subtractTimestamps(requests[j].timestamp, theAction[0]);
                         break;
                     }
                 if (j === reqLen) {
-                    unknownResponses.push({"id" : theAction[3][0],
+                    unknownResponses.push({"id" : theAction[3].id,
                                 "timestamp" : theAction[0],
-                                "response" : theAction[3][1]});
-                    console.log(unknownResponses);
+                                "response" : theAction[3].status});
                 }
 
             }
