@@ -283,6 +283,11 @@ var MaxRequests = 2000;
                     var version = theAction[3].body.version;
                     var theMsgCount = theAction[3].body.msgCount;
                 }
+                else
+                {
+                    var version = "-----";
+                    var theMsgCount = "---";
+                }
                 for (var k = 0; k < responsesLength; ++k)
                 {
                     if (unknownResponses[k].id === actionId)
