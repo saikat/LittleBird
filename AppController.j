@@ -25,7 +25,7 @@ var MaxRequests = 2000;
     CPArray unknownResponses;
 
     JSObject maxReq;
-    CPTextField reqsPerSec;
+    CPTextField reqsPerMin;
     CPTextField connPerMin;
     CPTextField timePerReq;
     CPTextField maxTimePerReq;
@@ -124,10 +124,10 @@ var MaxRequests = 2000;
     [openRequestsScrollView setHasHorizontalScroller:YES];
     [openRequestsScrollView setDocumentView:openRequestsView];
 
-    reqsPerSec = [CPTextField labelWithTitle:"Reqs/sec: "];
-    [reqsPerSec setFont:[CPFont fontWithName:"Helvetica" size:32.0]];
-    [reqsPerSec sizeToFit];
-    [reqsPerSec setFrameOrigin:CGPointMake(20, 540)];
+    reqsPerMin = [CPTextField labelWithTitle:"Reqs/min: "];
+    [reqsPerMin setFont:[CPFont fontWithName:"Helvetica" size:32.0]];
+    [reqsPerMin sizeToFit];
+    [reqsPerMin setFrameOrigin:CGPointMake(20, 540)];
 
     timePerReq = [CPTextField labelWithTitle:"Time/req: "];
     [timePerReq setFont:[CPFont fontWithName:"Helvetica" size:32.0]];
@@ -146,7 +146,7 @@ var MaxRequests = 2000;
 
     [contentView addSubview:clientProjectScrollView];
     [contentView addSubview:openRequestsScrollView];
-    [contentView addSubview:reqsPerSec];
+    [contentView addSubview:reqsPerMin];
     //    [contentView addSubview:connPerMin];
     [contentView addSubview:timePerReq];
     [contentView addSubview:maxTimePerReq];
@@ -212,9 +212,18 @@ var MaxRequests = 2000;
                 }
             });
         var avgTTR = totalTTR / count;
-        var totalElapsedTime = subtractTimestamps(requests[0].timestamp, requests[requests.length - 1].timestamp);
-        [reqsPerSec setStringValue:"Reqs/sec: " + (requests.length / (totalElapsedTime / 1000))];
-        [reqsPerSec sizeToFit];
+        var count = requests.length;
+        var latesttime = requests[count-1].timestamp;
+        var requestsInLastMinute = 0;
+        while (count--) {
+            if (subtractTimestamps(requests[count].timestamp, requests[requests.length - 1].timestamp) < 60000)
+                requestsInLastMinute++;
+            else
+                break;
+        }
+            
+        [reqsPerMin setStringValue:"Reqs/min: " + requestsInLastMinute];
+        [reqsPerMin sizeToFit];
         [timePerReq setStringValue:"Time/req (last 1000): " + avgTTR];
         [timePerReq sizeToFit];
         
@@ -228,11 +237,6 @@ var MaxRequests = 2000;
     [[projectsColumn headerView] setStringValue:"Projects (" + projectCount + ")"];
     [clientProjectView reloadData];
     [openRequestsView reloadData];
-}
-
-- (void)calculateRequestsPerMinute
-{
-    
 }
 
 - (void)socket:(SCSocket)aSocket didReceiveMessage:(JSObject)aMessage
