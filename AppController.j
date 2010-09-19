@@ -18,6 +18,7 @@ var MaxRequests = 2000;
     CPTableView openRequestsView;
     CPTableColumn clientsColumn;
     CPTableColumn projectsColumn; 
+    CPTableColumn transportColumn; 
     CPScrollView clientProjectScrollView;
     CPScrollView openRequestsScrollView;
     JSObject clients;
@@ -33,7 +34,8 @@ var MaxRequests = 2000;
 
 - (void)applicationDidFinishLaunching:(CPNotification)aNotification
 {
-    var host = window.prompt("Host?");
+    //    var host = window.prompt("Host?");
+    var host = 'http://localhost:8080';
     clients = {};
     requests = [];
     unknownResponses = [];
@@ -44,7 +46,8 @@ var MaxRequests = 2000;
 
 - (void)socketDidConnect:(SCSocket)aSocket
 {
-    var token = window.prompt("Secret?");
+    //    var token = window.prompt("Secret?");
+    var token = 'yNO6sPkCfiHUCXZDzpjCAMGIPP8lvD';
     lps = [0];
     [theSocket sendMessage:token];
     var theWindow = [[CPWindow alloc] initWithContentRect:CGRectMakeZero() styleMask:CPBorderlessBridgeWindowMask],
@@ -53,10 +56,20 @@ var MaxRequests = 2000;
     clientProjectView = [[CPTableView alloc] initWithFrame:CGRectMake(0, 0, 400, 500)];
 
     [clientProjectView setBackgroundColor:[CPColor colorWithHexString:"DDDDDD"]];
-    clientsColumn = [[CPTableColumn alloc] initWithIdentifier:@"clients"];
-    [clientsColumn setMinWidth:190];
-    projectsColumn = [[CPTableColumn alloc] initWithIdentifier:@"projects"];
-    [projectsColumn setMinWidth:190];
+
+    clientsColumn = [[CPTableColumn alloc] initWithIdentifier:@"client"];
+    [clientsColumn setMinWidth:25];
+    [clientsColumn setWidth:100];
+
+    transportColumn = [[CPTableColumn alloc] initWithIdentifier:@"transport"];
+    [[transportColumn headerView] setStringValue:"Transport"];
+    [transportColumn setMinWidth:25];
+    [transportColumn setWidth:100];
+
+    projectsColumn = [[CPTableColumn alloc] initWithIdentifier:@"project"];
+    [projectsColumn setMinWidth:25];
+    [projectsColumn setWidth:190];
+
     [clientProjectView setDataSource:self];
     [clientProjectView setAllowsColumnReordering:YES];
     [clientProjectView setAllowsColumnResizing:YES];
@@ -67,6 +80,7 @@ var MaxRequests = 2000;
     [clientProjectScrollView setDocumentView:clientProjectView];
  
     [clientProjectView addTableColumn:clientsColumn];
+    [clientProjectView addTableColumn:transportColumn];
     [clientProjectView addTableColumn:projectsColumn];
 
     openRequestsView = [[CPTableView alloc] initWithFrame:CGRectMake(0, 0, 800, 500)];
@@ -175,16 +189,14 @@ var MaxRequests = 2000;
                 else 
                 {
                     obj = {"client" : key,
-                           "project" : clients[key]};
+                           "transport" : clients[key].transport,
+                           "project" : clients[key].project};
                     break;
                 }
             };
 
-        if ([aColumn identifier] === 'clients') 
-            return obj.client;
-
-        if ([aColumn identifier] === 'projects')
-            return obj.project;
+        if (obj)
+            return obj[[aColumn identifier]];
     }
     else if (aView === openRequestsView)
     {
@@ -250,7 +262,8 @@ var MaxRequests = 2000;
             var allClients = theAction.clients;
             var count = allClients.length;
             for (var i = 0; i < count; ++i)
-                clients[allClients[i]] = nil;
+                clients[allClients[i].client] = {'project' : nil,
+                                                 'transport' : allClients[i].transport};
             [self refresh];
         }
         else
@@ -259,8 +272,11 @@ var MaxRequests = 2000;
             var requestType = theAction[1];
             var theClient = theAction[2];
             
-            if (requestType === "connect") 
-                clients[theClient] = nil;
+            if (requestType === "connect") {
+                if (!clients[theClient])
+                    clients[theClient] = {};
+                clients[theClient].transport = theAction[3];
+            }
             else if (requestType === "disconnect")
             {
                 for (key in clients) 
@@ -319,8 +335,9 @@ var MaxRequests = 2000;
                         else
                             return 1;
                     });
-                if (cmd == "subscribe" || cmd === "update")
-                    clients[theClient] = project;
+                if (cmd == "subscribe" || cmd === "update") {
+                    clients[theClient].project = project;
+                }
             }
             else if (requestType === "response")
             {
