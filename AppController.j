@@ -220,7 +220,9 @@ var MaxRequests = 2000;
     var projectCount = 0;
     var totalTTR = 0;
     var count = 0;
-    var now = new Date();
+    var theTime = new Date();
+
+    var now = new Date(theTime.toUTCString());
 
     if (requests.length) {
         requests.map(function(x, index) {
@@ -400,13 +402,15 @@ var MaxRequests = 2000;
 
 function dateFromTimestamp(ts) {
     var year = ts.substr(0, 4);
-    var month = ts.substr(5, 2);
+    var month = ts.substr(5, 2) - 1;
     var day = ts.substr(8, 2);
     var hour = ts.substr(11, 2);
     var min = ts.substr(14, 2);
     var sec = ts.substr(17, 2);
     var ms = ts.substr(20, 3);
-    return new Date(year, month, day, hour, min, sec, ms);
+    var theDate = new Date(year, month, day, hour, min, sec, ms);
+    theDate.setHours(theDate.getHours() - 7);
+    return theDate;
 }
 
 function subtractTimestamps(ts1, ts2) {
