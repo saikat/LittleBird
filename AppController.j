@@ -263,7 +263,7 @@ var MaxRequests = 2000;
 
     var count = connectionsInLastHour.length;
     if (count)
-        while (now - dateFromTimestamp(connectionsInLastHour[0]) > 3600000)
+        while (now - dateFromTimestamp(connectionsInLastHour[0]) > 3600000) 
             connectionsInLastHour.shift();
 
     [hourlyConnections setStringValue:"Connections/hour: " + connectionsInLastHour.length];
@@ -371,6 +371,8 @@ var MaxRequests = 2000;
                             return 1;
                     });
                 if (cmd == "subscribe" || cmd === "update") {
+                    if (!clients[theClient])
+                        clients[theClient] = {};
                     clients[theClient].project = project;
                     projectsEditedInLastHour[project] = actionTimestamp;
                 }
