@@ -27,15 +27,21 @@ var MaxRequests = 2000;
 
     JSObject maxReq;
     CPTextField reqsPerMin;
-    CPTextField connPerMin;
     CPTextField timePerReq;
     CPTextField maxTimePerReq;
+    CPTextField hourlyConnections;
+    CPTextField hourlyProjects;
+
+    CPArray connectionsInLastHour;
+    CPArray projectsEditedInLastHour;
 }
 
 - (void)applicationDidFinishLaunching:(CPNotification)aNotification
 {
     var host = window.prompt("Host?");
     clients = {};
+    connectionsInLastHour = [];
+    projectsEditedInLastHour = {};
     requests = [];
     unknownResponses = [];
     maxReq = {"time" : 0, "project" : ""};
@@ -151,15 +157,21 @@ var MaxRequests = 2000;
     [maxTimePerReq sizeToFit];
     [maxTimePerReq setFrameOrigin:CGPointMake(20, 610)];
 
-    connPerMin = [CPTextField labelWithTitle:"Conn/min: "];
-    [connPerMin setFont:[CPFont fontWithName:"Helvetica" size:32.0]];
-    [connPerMin sizeToFit];
-    [connPerMin setFrameOrigin:CGPointMake(20, 545)];
+    hourlyProjects = [CPTextField labelWithTitle:"Projects/hour: "];
+    [hourlyProjects setFont:[CPFont fontWithName:"Helvetica" size:32.0]];
+    [hourlyProjects sizeToFit];
+    [hourlyProjects setFrameOrigin:CGPointMake(600, 540)];
+
+    hourlyConnections = [CPTextField labelWithTitle:"Connections/hour: "];
+    [hourlyConnections setFont:[CPFont fontWithName:"Helvetica" size:32.0]];
+    [hourlyConnections sizeToFit];
+    [hourlyConnections setFrameOrigin:CGPointMake(600, 575)];
 
     [contentView addSubview:clientProjectScrollView];
     [contentView addSubview:openRequestsScrollView];
     [contentView addSubview:reqsPerMin];
-    //    [contentView addSubview:connPerMin];
+    [contentView addSubview:hourlyProjects];
+    [contentView addSubview:hourlyConnections];
     [contentView addSubview:timePerReq];
     [contentView addSubview:maxTimePerReq];
     [theWindow orderFront:self];
@@ -208,6 +220,8 @@ var MaxRequests = 2000;
     var projectCount = 0;
     var totalTTR = 0;
     var count = 0;
+    var now = new Date();
+
     if (requests.length) {
         requests.map(function(x, index) {
                 var parsedMsg = JSON.parse(x.request);
@@ -226,7 +240,7 @@ var MaxRequests = 2000;
         var latesttime = requests[count-1].timestamp;
         var requestsInLastMinute = 0;
         while (count--) {
-            if (subtractTimestamps(requests[count].timestamp, requests[requests.length - 1].timestamp) < 60000)
+            if (now - dateFromTimestamp(requests[count].timestamp) < 60000)
                 requestsInLastMinute++;
             else
                 break;
@@ -234,15 +248,35 @@ var MaxRequests = 2000;
             
         [reqsPerMin setStringValue:"Reqs/min: " + requestsInLastMinute];
         [reqsPerMin sizeToFit];
-        [timePerReq setStringValue:"Time/req (last 1000): " + avgTTR];
+        [timePerReq setStringValue:"Time/req (last 1000): " + avgTTR.toFixed(3)];
         [timePerReq sizeToFit];
         
         [maxTimePerReq setStringValue:"Max time/req (ever): " + maxReq.time + " (" + maxReq.project + ")"];
         [maxTimePerReq sizeToFit];
+
     }
     for (key in clients)
-        if (clients.hasOwnProperty(key) && clients[key] != nil)
+        if (clients.hasOwnProperty(key) && clients[key].project != nil)
             projectCount++;
+
+    var count = connectionsInLastHour.length;
+    if (count)
+        while (now - dateFromTimestamp(connectionsInLastHour[0]) > 3600000)
+            connectionsInLastHour.shift();
+
+    [hourlyConnections setStringValue:"Connections/hour: " + connectionsInLastHour.length];
+    [hourlyConnections sizeToFit];
+
+    for (key in projectsEditedInLastHour) {
+        if (projectsEditedInLastHour.hasOwnProperty(key) && projectsEditedInLastHour[key]) {
+            if (now - dateFromTimestamp(projectsEditedInLastHour[key]) > 3600000)
+                delete projectsEditedInLastHour[key];
+        }
+    }
+
+    [hourlyProjects setStringValue:"Projects/hour: " + Object.keys(projectsEditedInLastHour).length];
+    [hourlyProjects sizeToFit];
+
     [[clientsColumn headerView] setStringValue:"Clients (" + Object.keys(clients).length + ")"];
     [[projectsColumn headerView] setStringValue:"Projects (" + projectCount + ")"];
     [clientProjectView reloadData];
@@ -274,6 +308,7 @@ var MaxRequests = 2000;
                 if (!clients[theClient])
                     clients[theClient] = {};
                 clients[theClient].transport = theAction[3];
+                connectionsInLastHour.push(actionTimestamp);
             }
             else if (requestType === "disconnect")
             {
@@ -335,6 +370,7 @@ var MaxRequests = 2000;
                     });
                 if (cmd == "subscribe" || cmd === "update") {
                     clients[theClient].project = project;
+                    projectsEditedInLastHour[project] = actionTimestamp;
                 }
             }
             else if (requestType === "response")
@@ -376,4 +412,3 @@ function dateFromTimestamp(ts) {
 function subtractTimestamps(ts1, ts2) {
     return dateFromTimestamp(ts2) - dateFromTimestamp(ts1);
 }
-
